@@ -827,9 +827,39 @@
     }
     
     // Submit configuration
-    function submitConfig() {
-      checkSolvability();
+  async function submitConfig() {
+  // Build cube state object in the same structure as backend expects
+  const cubeStateToSend = {};
+  FACE_NAMES.forEach(face => {
+    cubeStateToSend[face] = cubeState[face];
+  });
+
+  // Optionally: check solvability before sending
+
+  // Send to backend
+  try {
+    const response = await fetch('http://localhost:5000/solve', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ cube_state: cubeStateToSend })
+});
+    const result = await response.json();
+    if (result.solution) {
+      showNotification("Solution: " + result.solution);
+      // Or display in a dedicated area:
+      document.getElementById('overall-status').textContent = result.solution;
+      document.getElementById('overall-status').className = 'status-value valid';
+    } else if (result.error) {
+      showNotification("Error: " + result.error);
+      document.getElementById('overall-status').textContent = "Error";
+      document.getElementById('overall-status').className = 'status-value invalid';
     }
+  } catch (err) {
+    showNotification("Server error: " + err.message);
+    document.getElementById('overall-status').textContent = "Server error";
+    document.getElementById('overall-status').className = 'status-value invalid';
+  }
+}
     
     // Add event listeners
     document.getElementById('check-btn').addEventListener('click', checkSolvability);
