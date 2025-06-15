@@ -571,10 +571,10 @@
 
     // Reset status panel
     function resetStatusPanel() {
-  const overallStatus = document.getElementById('overall-status');
-  overallStatus.textContent = 'Not checked';
-  overallStatus.className = 'status-value';
-}
+      const overallStatus = document.getElementById('overall-status');
+      overallStatus.textContent = 'Not checked';
+      overallStatus.className = 'status-value';
+    }
 
 
     // --- Cube rotation logic (mouse drag) ---
@@ -780,39 +780,39 @@
     }
 
     async function checkSolvability() {
-  const statusEl = document.getElementById('overall-status');
-  statusEl.textContent = 'Checking...';
-  statusEl.className = 'status-value';
+      const statusEl = document.getElementById('overall-status');
+      statusEl.textContent = 'Checking...';
+      statusEl.className = 'status-value';
 
-  try {
-    const cubeStateToSend = {};
-    FACE_NAMES.forEach(face => {
-      cubeStateToSend[face] = cubeState[face];
-    });
+      try {
+        const cubeStateToSend = {};
+        FACE_NAMES.forEach(face => {
+          cubeStateToSend[face] = cubeState[face];
+        });
 
-    const response = await fetch('http://localhost:5000/solve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cube_state: cubeStateToSend })
-    });
+        const response = await fetch('http://localhost:5000/solve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cube_state: cubeStateToSend })
+        });
 
-    const result = await response.json();
+        const result = await response.json();
 
-    if (result.solution) {
-      statusEl.textContent = 'SOLVABLE';
-      statusEl.className = 'status-value valid';
-      showNotification('Cube is solvable!');
-    } else {
-      statusEl.textContent = result.error || 'UNSOLVABLE';
-      statusEl.className = 'status-value invalid';
-      showNotification(`Validation failed: ${result.error || 'Unknown issue'}`);
+        if (result.solution) {
+          statusEl.textContent = 'SOLVABLE';
+          statusEl.className = 'status-value valid';
+          showNotification('Cube is solvable!');
+        } else {
+          statusEl.textContent = result.error || 'UNSOLVABLE';
+          statusEl.className = 'status-value invalid';
+          showNotification(`Validation failed: ${result.error || 'Unknown issue'}`);
+        }
+      } catch (err) {
+        statusEl.textContent = 'Connection error';
+        statusEl.className = 'status-value invalid';
+        showNotification('Failed to reach the backend server.');
+      }
     }
-  } catch (err) {
-    statusEl.textContent = 'Connection error';
-    statusEl.className = 'status-value invalid';
-    showNotification('Failed to reach the backend server.');
-  }
-}
 
 
     function animateSolution(movesStr) {
@@ -846,10 +846,10 @@
         });
         const result = await response.json();
         if (result.solution) {
-          showNotification("Animating solution...");
-          animateSolution(result.solution);
-          document.getElementById('overall-status').textContent = "Animating solution...";
-          document.getElementById('overall-status').className = 'status-value valid';
+          // Store the solution in sessionStorage
+          sessionStorage.setItem('cubeSolution', result.solution);
+          // Redirect to the animation page
+          window.location.href = 'index2.html';
         } else if (result.error) {
           showNotification("Error: " + result.error);
           document.getElementById('overall-status').textContent = "Error";
@@ -861,6 +861,7 @@
         document.getElementById('overall-status').className = 'status-value invalid';
       }
     }
+
 
     // Add event listeners
     document.getElementById('check-btn').addEventListener('click', checkSolvability);

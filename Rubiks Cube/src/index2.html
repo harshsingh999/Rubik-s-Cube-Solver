@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rubik's Cube Animator</title>
+  <style>
+    body { background: #181818; color: #fff; font-family: sans-serif; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; }
+    #container { width: 600px; height: 600px; margin-top: 30px; }
+    button { padding: 7px 16px; font-size: 1.1em; border-radius: 5px; border: none; background: #3b82f6; color: #fff; cursor: pointer; margin-top: 20px; }
+    button:hover { background: #2563eb; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js",
+      "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <h2>Rubik's Cube Animation</h2>
+  <div id="container"></div>
+  <button id="resetBtn">Reset</button>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+    const COLORS = {
+      U: "#FFFFFF", D: "#FFD500", F: "#B90000",
+      B: "#FF5900", L: "#0045AD", R: "#009B48"
+    };
+
+    let scene, camera, renderer, controls;
+    let cubelets = [];
+    let animating = false;
+    let moveQueue = [];
+    let cubeGroup;
+
+    function permuteMaterials(cubelet, axis, angle) {
+      // [Right, Left, Top, Bottom, Front, Back]
+      let m = cubelet.material;
+      let times = Math.abs(angle) / (Math.PI/2);
+      let dir = Math.sign(angle);
+      for(let t=0; t<times; t++) {
+        if(axis === 'y') {
+          if(dir > 0) { // U/D clockwise
+            [m[4], m[0], m[5], m[1]] = [m[1], m[4], m[0], m[5]];
+          } else { // U/D counterclockwise
+            [m[4], m[1], m[5], m[0]] = [m[0], m[4], m[1], m[5]];
+          }
+        }
+        if(axis === 'x') {
+          if(dir > 0) { // R/L clockwise
+            [m[2], m[4], m[3], m[5]] = [m[5], m[2], m[4], m[3]];
+          } else { // R/L counterclockwise
+            [m[2], m[5], m[3], m[4]] = [m[4], m[2], m[5], m[3]];
+          }
+        }
+        if(axis === 'z') {
+          if(dir > 0) { // F/B clockwise
+            [m[2], m[1], m[3], m[0]] = [m[0], m[2], m[1], m[3]];
+          } else { // F/B counterclockwise
+            [m[2], m[0], m[3], m[1]] = [m[1], m[2], m[0], m[3]];
+          }
+        }
+      }
+    }
+
+    function rotateMove(move, cb) {
+      const def = MOVE_MAP[move];
+      if (!def) { cb(); return; }
+      const sel = cubelets.filter(c => Math.round(c.position[def.axis]) === def.value);
+      const group = new THREE.Group();
+      sel.forEach(c => group.attach(c));
+      cubeGroup.add(group);
+
+      let progress = 0;
+      const duration = 220;
+      const angle = (Math.PI/2) * (def.dir === 2 ? 2 : 1) * Math.sign(def.dir);
+      const axisVec = {
+        x: new THREE.Vector3(1,0,0),
+        y: new THREE.Vector3(0,1,0),
+        z: new THREE.Vector3(0,0,1)
+      }[def.axis];
+
+      function anim(ts) {
+        progress += 16;
+        let t = Math.min(progress/duration, 1);
+        group.rotation[def.axis] = angle * t;
+        renderer.render(scene, camera);
+
+        if(t < 1) {
+          requestAnimationFrame(anim);
+        } else {
+          group.rotation[def.axis] = 0;
+          sel.forEach(c => {
+            c.position.applyAxisAngle(axisVec, angle);
+            c.position.x = Math.round(c.position.x);
+            c.position.y = Math.round(c.position.y);
+            c.position.z = Math.round(c.position.z);
+            permuteMaterials(c, def.axis, angle);
+            c.rotation.set(0,0,0);
+            cubeGroup.attach(c);
+          });
+          cubeGroup.remove(group);
+          cb();
+        }
+      }
+      requestAnimationFrame(anim);
+    }
+
+    function parseMoves(str) {
+      return str.match(/([URFDLB]2?'?)/g) || [];
+    }
+
+    function playMoves(moves) {
+      if (animating) return;
+      moveQueue = moves.slice();
+      runNextMove();
+    }
+
+    function runNextMove() {
+      if (moveQueue.length === 0) {
+        animating = false;
+        return;
+      }
+      animating = true;
+      const move = moveQueue.shift();
+      rotateMove(move, () => {
+        setTimeout(runNextMove, 100);
+      });
+    }
+
+    const MOVE_MAP = {
+      "U":  { axis: 'y', value:  1, dir:  1 },
+      "U'": { axis: 'y', value:  1, dir: -1 },
+      "U2": { axis: 'y', value:  1, dir:  2 },
+      "D":  { axis: 'y', value: -1, dir:  1 },
+      "D'": { axis: 'y', value: -1, dir: -1 },
+      "D2": { axis: 'y', value: -1, dir:  2 },
+      "L":  { axis: 'x', value: -1, dir:  1 },
+      "L'": { axis: 'x', value: -1, dir: -1 },
+      "L2": { axis: 'x', value: -1, dir:  2 },
+      "R":  { axis: 'x', value:  1, dir:  1 },
+      "R'": { axis: 'x', value:  1, dir: -1 },
+      "R2": { axis: 'x', value:  1, dir:  2 },
+      "F":  { axis: 'z', value:  1, dir:  1 },
+      "F'": { axis: 'z', value:  1, dir: -1 },
+      "F2": { axis: 'z', value:  1, dir:  2 },
+      "B":  { axis: 'z', value: -1, dir:  1 },
+      "B'": { axis: 'z', value: -1, dir: -1 },
+      "B2": { axis: 'z', value: -1, dir:  2 },
+    };
+
+    function hexToThreeColor(hex) {
+      return new THREE.Color(hex);
+    }
+
+    function initCube() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x181818);
+      camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+      camera.position.set(5, 7, 8);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(600, 600);
+      document.getElementById('container').innerHTML = '';
+      document.getElementById('container').appendChild(renderer.domElement);
+
+      // Lighting
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      dirLight.position.set(10, 10, 10);
+      scene.add(dirLight);
+
+      // Controls
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+      controls.enablePan = false;
+      controls.minDistance = 8;
+      controls.maxDistance = 20;
+
+      // Cubelets
+      cubeGroup = new THREE.Group();
+      cubelets = [];
+      const size = 0.98;
+      for (let x = -1; x <= 1; x++) {
+        for (let y = -1; y <= 1; y++) {
+          for (let z = -1; z <= 1; z++) {
+            if (x === 0 && y === 0 && z === 0) continue;
+            const materials = [];
+            // [Right, Left, Top, Bottom, Front, Back]
+            materials.push(new THREE.MeshLambertMaterial({ color: x === 1 ? hexToThreeColor(COLORS.R) : 0x222222 })); // Right (Green)
+            materials.push(new THREE.MeshLambertMaterial({ color: x === -1 ? hexToThreeColor(COLORS.L) : 0x222222 })); // Left (Blue)
+            materials.push(new THREE.MeshLambertMaterial({ color: y === 1 ? hexToThreeColor(COLORS.U) : 0x222222 })); // Up (White)
+            materials.push(new THREE.MeshLambertMaterial({ color: y === -1 ? hexToThreeColor(COLORS.D) : 0x222222 })); // Down (Yellow)
+            materials.push(new THREE.MeshLambertMaterial({ color: z === 1 ? hexToThreeColor(COLORS.F) : 0x222222 })); // Front (Red)
+            materials.push(new THREE.MeshLambertMaterial({ color: z === -1 ? hexToThreeColor(COLORS.B) : 0x222222 })); // Back (Orange)
+            const geom = new THREE.BoxGeometry(size, size, size);
+            const mesh = new THREE.Mesh(geom, materials);
+            mesh.position.set(x, y, z);
+            mesh.userData = { x, y, z };
+            mesh.rotation.set(0, 0, 0);
+            cubelets.push(mesh);
+            cubeGroup.add(mesh);
+          }
+        }
+      }
+      scene.add(cubeGroup);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    document.getElementById('resetBtn').onclick = () => {
+      initCube();
+      // Replay solution if available
+      const solution = sessionStorage.getItem('cubeSolution');
+      if (solution) playMoves(parseMoves(solution));
+    };
+
+    // --- Initialize ---
+    initCube();
+    animate();
+
+    // On load, auto-play solution
+    window.addEventListener('DOMContentLoaded', () => {
+      const solution = sessionStorage.getItem('cubeSolution');
+      if (solution) playMoves(parseMoves(solution));
+      else alert('No solution found. Please start from the configuration page.');
+    });
+  </script>
+</body>
+</html>
