@@ -3,15 +3,11 @@ from flask_cors import CORS
 import kociemba
 
 app = Flask(__name__)
-CORS(app)  # Single CORS initialization
+CORS(app)
 
 COLOR_TO_FACE = {
-    "#FFFFFF": "U",  # White (Up)
-    "#FFD500": "D",  # Yellow (Down)
-    "#B90000": "F",  # Red (Front)
-    "#FF5900": "B",  # Orange (Back)
-    "#0045AD": "L",  # Blue (Left)
-    "#009B48": "R"   # Green (Right)
+    "#FFFFFF": "U", "#FFD500": "D", "#B90000": "F",
+    "#FF5900": "B", "#0045AD": "L", "#009B48": "R"
 }
 
 @app.route('/solve', methods=['POST'])
@@ -20,19 +16,10 @@ def solve_cube():
     if not data or 'cube_state' not in data:
         return jsonify({"error": "Missing cube_state in request"}), 400
 
-    cube_state = data['cube_state']
-    facelet_str = ""
-    face_map = {
-        "top": "U",
-        "right": "R",
-        "front": "F",
-        "bottom": "D",
-        "left": "L",
-        "back": "B"
-    }
-
     try:
-        # Validate and convert cube state
+        cube_state = data['cube_state']
+        facelet_str = ""
+
         for face in ['top', 'right', 'front', 'bottom', 'left', 'back']:
             stickers = cube_state.get(face, [])
             if len(stickers) != 9:
@@ -48,7 +35,7 @@ def solve_cube():
 
         solution = kociemba.solve(facelet_str)
         return jsonify({"solution": solution})
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

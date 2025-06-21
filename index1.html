@@ -848,8 +848,9 @@
         if (result.solution) {
           // Store the solution in sessionStorage
           sessionStorage.setItem('cubeSolution', result.solution);
-          // Redirect to the animation page
-          window.location.href = 'index2.html';
+sessionStorage.setItem('cubeConfig', JSON.stringify(cubeState));
+window.location.href = 'index2.html';
+
         } else if (result.error) {
           showNotification("Error: " + result.error);
           document.getElementById('overall-status').textContent = "Error";
